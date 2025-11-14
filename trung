@@ -275,6 +275,9 @@ local function checkPetPerks(petItem)
                     if not threshold then
                         warn(string.format("⚠️ Pet có perk '%s' nhưng KHÔNG CÓ trong slider! -> Sẽ BÁN", perkName))
                         threshold = 999 -- Ngưỡng cao để chắc chắn BÁN
+                    else
+                        -- ✅ CONVERT STRING SANG NUMBER (config lưu dưới dạng string!)
+                        threshold = tonumber(threshold) or 999
                     end
                     
                     local perkPercent = math.round(perkValue * 100)
