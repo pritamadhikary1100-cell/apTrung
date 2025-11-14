@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luasss
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -440,6 +440,13 @@ local function startAutoBuy()
     
     task.spawn(function()
         while HatchGlobals.isAutoBuying do
+            -- ✅ KIỂM TRA TOGGLE STATE
+            local autoBuyEnabled = _G.Toggles and _G.Toggles.AutoBuyEgg and _G.Toggles.AutoBuyEgg.Value or false
+            if not autoBuyEnabled then
+                HatchGlobals.isAutoBuying = false
+                break
+            end
+            
             local success = buyEgg(HatchGlobals.selectedEgg, HatchGlobals.purchaseMethod)
             
             if not success then
@@ -468,6 +475,13 @@ local function startAutoHatch()
     
     task.spawn(function()
         while HatchGlobals.isAutoHatching do
+            -- ✅ KIỂM TRA TOGGLE STATE
+            local autoHatchEnabled = _G.Toggles and _G.Toggles.AutoHatchEgg and _G.Toggles.AutoHatchEgg.Value or false
+            if not autoHatchEnabled then
+                HatchGlobals.isAutoHatching = false
+                break
+            end
+            
             local hatchedCount = hatchAllEggs()
             
             if hatchedCount == 0 then
