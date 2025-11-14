@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luas
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -682,18 +682,13 @@ function Module:Init()
                     local slider = ConfigSystem.UIElements[sliderKey]
                     if slider then
                         local success, err = pcall(function()
-                            -- 🔍 DEBUG: In ra tất cả properties của slider
-                            warn("🔍 Slider properties:")
-                            for k, v in pairs(slider) do
-                                warn(string.format("  %s = %s", tostring(k), tostring(v)))
+                            -- ✅ WindUI slider dùng method :Set(value)
+                            if slider.Set and type(slider.Set) == "function" then
+                                slider:Set(numValue)
+                                warn(string.format("✅ Set %s threshold: %.1f%%", perkKey, numValue))
+                            else
+                                warn(string.format("⚠️ Slider %s không có method :Set()", sliderKey))
                             end
-                            
-                            -- ✅ CHỈ SET VALUE, KHÔNG GỌI CALLBACK
-                            local oldValue = slider.Value
-                            slider.Value = numValue
-                            
-                            warn(string.format("✅ Set %s: %.1f → %.1f (current: %.1f)", 
-                                sliderKey, oldValue or -1, numValue, slider.Value or -1))
                         end)
                         
                         if not success then
@@ -838,13 +833,14 @@ function Module:Init()
                                 return
                             end
                             
-                            local oldValue = slider.Value
-                            
-                            -- ✅ CHỈ SET VALUE, KHÔNG GỌI CALLBACK để tránh lỗi
-                            slider.Value = numValue
-                            
-                            slidersUpdated = slidersUpdated + 1
-                            warn(string.format("✅ Updated slider %s: %.1f%% (was: %.1f%%)", sliderKey, numValue, oldValue or -1))
+                            -- ✅ WindUI slider dùng method :Set(value)
+                            if slider.Set and type(slider.Set) == "function" then
+                                slider:Set(numValue)
+                                slidersUpdated = slidersUpdated + 1
+                                warn(string.format("✅ Updated slider %s: %.1f%%", sliderKey, numValue))
+                            else
+                                warn(string.format("⚠️ Slider %s không có method :Set()", sliderKey))
+                            end
                         end)
                         
                         if not success then
