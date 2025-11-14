@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luaxxxxx
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -235,42 +235,60 @@ local function getPetPerksList()
     return petPerks
 end
 
--- Kiểm tra pet có perk đạt ngưỡng không
+-- Kiểm tra pet có perk đạt ngưỡng không (GIỐNG VŨ KHÍ - CHỈ CẦN 1 PERK ĐẠT)
 local function checkPetPerks(petItem)
-    if not petItem:FindFirstChild("Perk") or not petItem.Perk:FindFirstChild("PerkValue") then
-        -- ✅ Pet không có perk -> BÁN (không giữ)
+    local hasValidPerk = false
+    local bestPerkInfo = nil
+    local shouldKeepPet = false
+    
+    -- ✅ Loop qua tất cả children để tìm Perk, Perk1, Perk2, Perk3
+    for _, child in ipairs(petItem:GetChildren()) do
+        -- Chỉ xử lý nếu là StringValue có PerkValue (tức là Perk hoặc Perk1/2/3)
+        if child:IsA("StringValue") and child:FindFirstChild("PerkValue") then
+            local perkName = child.Value
+            local perkValue = child.PerkValue.Value
+            
+            -- Lấy perk data
+            local perkData = bQ[perkName]
+            
+            -- Kiểm tra perk có hợp lệ và là PetOnly không
+            if perkData and perkData.PetOnly then
+                hasValidPerk = true
+                
+                -- Lấy ngưỡng từ HatchGlobals.petPerkThresholds
+                local threshold = HatchGlobals.petPerkThresholds[perkName] or 0
+                local perkPercent = math.round(perkValue * 100)
+                
+                -- ✅ Nếu perk này đạt ngưỡng -> GIỮ PET
+                local meetsThreshold = perkPercent >= threshold
+                
+                if meetsThreshold and not shouldKeepPet then
+                    shouldKeepPet = true
+                end
+                
+                -- Lưu perk tốt nhất để hiển thị (perk đầu tiên đạt ngưỡng hoặc perk cao nhất)
+                if not bestPerkInfo or meetsThreshold or (not shouldKeepPet and perkPercent > bestPerkInfo.value) then
+                    bestPerkInfo = {
+                        name = perkData.DisplayName,
+                        value = perkPercent,
+                        threshold = threshold,
+                        meets = meetsThreshold
+                    }
+                end
+            end
+        end
+    end
+    
+    -- Nếu không có perk hợp lệ nào -> BÁN
+    if not hasValidPerk then
         return false, {
-            name = "No Perk",
+            name = "No Valid Perk",
             value = 0,
             threshold = 0
         }
     end
     
-    local perkName = petItem.Perk.Value
-    local perkValue = petItem.Perk.PerkValue.Value
-    
-    -- Lấy perk data
-    local perkData = bQ[perkName]
-    if not perkData or not perkData.PetOnly then
-        -- ✅ Perk không hợp lệ hoặc không phải PetOnly -> BÁN
-        return false, {
-            name = perkName or "Unknown",
-            value = 0,
-            threshold = 0
-        }
-    end
-    
-    -- Lấy ngưỡng từ HatchGlobals.petPerkThresholds
-    local threshold = HatchGlobals.petPerkThresholds[perkName] or 0
-    
-    -- So sánh với ngưỡng
-    local shouldKeep = (perkValue * 100) >= threshold
-    
-    return shouldKeep, {
-        name = perkData.DisplayName,
-        value = perkValue * 100,
-        threshold = threshold
-    }
+    return shouldKeepPet, bestPerkInfo
 end
 
 -- Sell pet
@@ -662,41 +680,42 @@ local function createAutoHatchTab()
             return
         end
         
-        -- ✅ PRIORITY 1: Smart Pet Keep (ưu tiên GIỮ pet có perk đạt ngưỡng)
-        if HatchGlobals.smartPetKeep then
+        -- Lấy tier của pet
+        local petTier = getPetTier(item)
+        
+        -- ✅ PRIORITY 1: Smart Pet Keep CHỈ áp dụng cho TIER 5
+        if HatchGlobals.smartPetKeep and petTier == 5 then
             local shouldKeep, perkInfo = checkPetPerks(item)
             
-            -- ✅ LUÔN LUÔN có perkInfo (ngay cả khi không có perk)
             if shouldKeep then
-                -- Pet đạt ngưỡng -> GIỮ LẠI (bỏ qua tier filter)
-                libNoti(string.format("✅ Giữ: %s | %s: %.1f%% ≥ %.1f%%", 
+                -- Pet Tier 5 đạt ngưỡng -> GIỮ LẠI
+                libNoti(string.format("✅ Giữ (T5): %s | %s: %.1f%% ≥ %.1f%%", 
                     itemData.DisplayKey or item.Name,
                     perkInfo.name,
                     perkInfo.value,
                     perkInfo.threshold
                 ), 2)
-                return -- Đã giữ, không cần check tier
+                return -- Đã giữ, không cần check tier filter
             end
-            -- Nếu không đạt ngưỡng, tiếp tục check tier filter bên dưới
+            -- Nếu Tier 5 không đạt ngưỡng, tiếp tục check tier filter bên dưới
         end
         
-        -- ✅ PRIORITY 2: Auto Sell by Tier (bán theo tier nếu Smart Pet Keep không giữ)
+        -- ✅ PRIORITY 2: Auto Sell by Tier (bán theo tier đã chọn)
         if HatchGlobals.autoSellPetByTier then
             if shouldSellPetByTier(item) then
-                local tier = getPetTier(item)
                 if sellPet(item) then
-                    libNoti(string.format("💰 Bán (Tier %d): %s", tier or 0, itemData.DisplayKey or item.Name), 1.5)
+                    libNoti(string.format("💰 Bán (Tier %d): %s", petTier or 0, itemData.DisplayKey or item.Name), 1.5)
                 end
                 return -- Đã sell
             end
         end
         
-        -- ✅ PRIORITY 3: Nếu Smart Pet Keep enabled nhưng pet không đạt ngưỡng và không thuộc tier sell list
-        -- → Vẫn bán vì không đạt yêu cầu
+        -- ✅ PRIORITY 3: Smart Pet Keep cho các tier khác (nếu không bật Auto Sell by Tier)
+        -- → Chỉ chạy khi Auto Sell by Tier TẮT hoặc pet không thuộc tier sell list
         if HatchGlobals.smartPetKeep then
             local shouldKeep, perkInfo = checkPetPerks(item)
             if not shouldKeep then
-                -- Pet không đạt ngưỡng và không bị tier filter → Bán
+                -- Pet không đạt ngưỡng → Bán
                 if sellPet(item) then
                     libNoti(string.format("💰 Bán (Perk): %s | %s: %.1f%% < %.1f%%", 
                         itemData.DisplayKey or item.Name,
