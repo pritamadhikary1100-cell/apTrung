@@ -44,7 +44,11 @@ local HatchGlobals = {
     totalEggsHatched = 0,
     sessionStartTime = 0,
     smartPetKeep = false, -- Toggle smart pet keep
+    autoSellPetByTier = false, -- Toggle auto sell pet by tier
+    autoSellAllPets = false, -- Toggle auto sell all pets
     petPerkThresholds = {}, -- Ngưỡng perk cho pet (riêng biệt với weapon)
+    petTierSellList = {true, true, true, true, true}, -- Tier nào sẽ bị bán (1-5)
+    totalPetsSold = 0, -- Thống kê số pet đã bán
     -- Config
     ConfigFile = "AnyaHub_HatchConfig_" .. c.Name .. ".txt"
 }
@@ -270,7 +274,93 @@ local function sellPet(petItem)
         SellRemote:FireServer({petItem})
     end)
     
+    if success then
+        HatchGlobals.totalPetsSold = HatchGlobals.totalPetsSold + 1
+    end
+    
     return success
+end
+
+-- Lấy tier của pet
+local function getPetTier(petItem)
+    if not petItem or not petItem:FindFirstChild("Variant") then
+        return nil
+    end
+    
+    local petName = petItem.Name
+    local variantValue = petItem.Variant.Value
+    
+    -- Lấy data từ ItemsModule
+    local itemData = ItemsModule[petName]
+    if not itemData or itemData.Type ~= "Pet" or not itemData.Variants then
+        return nil
+    end
+    
+    -- Tìm variant matching
+    for _, variant in ipairs(itemData.Variants) do
+        -- variant = {variantId, name, weight, tier, skill}
+        if variant[1] == variantValue then
+            return variant[4] -- Tier ở vị trí thứ 4
+        end
+    end
+    
+    return nil
+end
+
+-- Kiểm tra xem pet có nên bị sell theo tier không
+local function shouldSellPetByTier(petItem)
+    local tier = getPetTier(petItem)
+    if not tier then
+        return false -- Không xác định được tier, không sell
+    end
+    
+    -- Kiểm tra xem tier này có trong danh sách sell không
+    return HatchGlobals.petTierSellList[tier] == true
+end
+
+-- Lấy tất cả pets trong inventory
+local function getAllPetsInInventory()
+    local pets = {}
+    
+    for _, item in ipairs(InventoryItems:GetChildren()) do
+        local itemData = bR[item.Name]
+        if itemData and itemData.Type == "Pet" then
+            table.insert(pets, item)
+        end
+    end
+    
+    return pets
+end
+
+-- Bán tất cả pets trong inventory
+local function sellAllPets()
+    local pets = getAllPetsInInventory()
+    local soldCount = 0
+    
+    if #pets == 0 then
+        return 0
+    end
+    
+    -- Thu thập tất cả pets vào một array
+    local petsToSell = {}
+    for _, pet in ipairs(pets) do
+        table.insert(petsToSell, pet)
+    end
+    
+    -- Gọi remote để bán tất cả cùng lúc
+    if #petsToSell > 0 then
+        local SellRemote = Shared:WaitForChild("Pets"):WaitForChild("SellPet")
+        local success = pcall(function()
+            SellRemote:FireServer(petsToSell)
+        end)
+        
+        if success then
+            soldCount = #petsToSell
+            HatchGlobals.totalPetsSold = HatchGlobals.totalPetsSold + soldCount
+        end
+    end
+    
+    return soldCount
 end
 
 -- ==================== AUTO FUNCTIONS ====================
@@ -467,6 +557,48 @@ local function createAutoHatchTab()
     })
     ConfigSystem.registerUIElement("SmartPetKeep", SmartPetKeepToggle)
     
+    -- ✅ AUTO SELL PET BY TIER
+    TabHatch:Divider({ Text = "Auto Sell by Tier" })
+    
+    local AutoSellPetByTierToggle = TabHatch:Toggle({
+        Title = "🗑️ Auto Sell Pet by Tier",
+        Description = "Tự động bán pet theo tier đã chọn",
+        Default = false,
+        Callback = function(state)
+            if _G.Toggles and _G.Toggles.AutoSellPetByTier then
+                _G.Toggles.AutoSellPetByTier:SetValue(state)
+            end
+            HatchGlobals.autoSellPetByTier = state
+            
+            if state then
+                libNoti("✅ Bật Auto Sell Pet by Tier", 2)
+            else
+                libNoti("⏹️ Tắt Auto Sell Pet by Tier", 2)
+            end
+        end
+    })
+    ConfigSystem.registerUIElement("AutoSellPetByTier", AutoSellPetByTierToggle)
+    
+    -- Tier checkboxes (giống weapon tier)
+    local tierNames = {"Tier 1", "Tier 2", "Tier 3", "Tier 4", "Tier 5"}
+    local tierToggles = {}
+    
+    for tier = 1, 5 do
+        local tierToggle = TabHatch:Toggle({
+            Title = "💎 " .. tierNames[tier],
+            Description = "Bán pet " .. tierNames[tier],
+            Default = true, -- Mặc định bán tất cả tier
+            Callback = function(state)
+                HatchGlobals.petTierSellList[tier] = state
+                warn(string.format("📊 Pet Tier %d sell: %s", tier, tostring(state)))
+            end
+        })
+        tierToggles[tier] = tierToggle
+        ConfigSystem.registerUIElement("PetTierSell_" .. tier, tierToggle)
+    end
+    
+    TabHatch:Divider({ Text = "Smart Pet Keep Thresholds" })
+    
     -- ✅ TẠO SLIDER CHO TỪNG PET PERK
     local petPerks = getPetPerksList()
     for _, perk in ipairs(petPerks) do
@@ -496,13 +628,35 @@ local function createAutoHatchTab()
     
     -- ✅ AUTO SELL PET KHI HATCH (Smart Pet Keep listener)
     InventoryItems.ChildAdded:Connect(function(item)
-        if not HatchGlobals.smartPetKeep then return end
-        
         task.wait(0.1) -- Đợi item load xong
         
         -- Kiểm tra xem có phải pet không
         local itemData = bR[item.Name]
-        if itemData and itemData.Type == "Pet" then
+        if not itemData or itemData.Type ~= "Pet" then
+            return
+        end
+        
+        -- ✅ PRIORITY 0: Auto Sell All Pets (nếu enabled, bán tất cả)
+        if HatchGlobals.autoSellAllPets then
+            if sellPet(item) then
+                -- Không hiển thị noti cho từng con để tránh spam
+            end
+            return
+        end
+        
+        -- ✅ PRIORITY 1: Auto Sell by Tier (nếu enabled)
+        if HatchGlobals.autoSellPetByTier then
+            if shouldSellPetByTier(item) then
+                local tier = getPetTier(item)
+                if sellPet(item) then
+                    libNoti(string.format("💰 Bán (Tier %d): %s", tier or 0, itemData.DisplayKey or item.Name), 1.5)
+                end
+                return -- Đã sell, không cần check Smart Pet Keep nữa
+            end
+        end
+        
+        -- ✅ PRIORITY 2: Smart Pet Keep (nếu enabled và pet không bị sell bởi tier)
+        if HatchGlobals.smartPetKeep then
             local shouldKeep, perkInfo = checkPetPerks(item)
             
             if perkInfo then
@@ -515,7 +669,7 @@ local function createAutoHatchTab()
                     ), 2)
                 else
                     if sellPet(item) then
-                        libNoti(string.format("💰 Bán: %s | %s: %.1f%% < %.1f%%", 
+                        libNoti(string.format("💰 Bán (Perk): %s | %s: %.1f%% < %.1f%%", 
                             itemData.DisplayKey or item.Name,
                             perkInfo.name,
                             perkInfo.value,
@@ -528,6 +682,42 @@ local function createAutoHatchTab()
     end)
     
     TabHatch:Divider({ Text = "Manual Actions" })
+    
+    -- Toggle Auto Sell All Pets
+    local AutoSellAllPetsToggle = TabHatch:Toggle({
+        Title = "🗑️ Auto Sell All Pets",
+        Description = "Tự động bán tất cả pets (bỏ qua tất cả filter khác)",
+        Default = false,
+        Callback = function(state)
+            if _G.Toggles and _G.Toggles.AutoSellAllPets then
+                _G.Toggles.AutoSellAllPets:SetValue(state)
+            end
+            HatchGlobals.autoSellAllPets = state
+            
+            if state then
+                libNoti("⚠️ Bật Auto Sell ALL Pets - Sẽ bán tất cả!", 3)
+            else
+                libNoti("⏹️ Tắt Auto Sell All Pets", 2)
+            end
+        end
+    })
+    ConfigSystem.registerUIElement("AutoSellAllPets", AutoSellAllPetsToggle)
+    
+    -- Button Sell All Pets
+    TabHatch:Button({
+        Title = "🗑️ Sell All Pets",
+        Description = "Bán tất cả pets trong inventory (nhấn đúp)",
+        Callback = function()
+            local count = sellAllPets()
+            if count > 0 then
+                libNoti(string.format("💰 Đã bán %d pets!", count), 3)
+            else
+                libNoti("⚠️ Không có pet trong inventory", 3)
+            end
+        end
+    })
+    
+    TabHatch:Divider({ Text = "Other Actions" })
     
     -- Button mua 1 egg
     TabHatch:Button({
@@ -595,10 +785,12 @@ local function createAutoHatchTab()
             local stats = string.format(
                 "⏱️ Thời gian: %s\n" ..
                 "🛒 Đã mua: %s eggs\n" ..
-                "🐣 Đã hatch: %s eggs",
+                "🐣 Đã hatch: %s eggs\n" ..
+                "💰 Đã bán: %s pets",
                 timeElapsed(math.floor(elapsed)),
                 formatNumber(HatchGlobals.totalEggsBought),
-                formatNumber(HatchGlobals.totalEggsHatched)
+                formatNumber(HatchGlobals.totalEggsHatched),
+                formatNumber(HatchGlobals.totalPetsSold)
             )
             
             StatsPara1:SetDesc(stats)
@@ -717,7 +909,9 @@ function Module:Init()
         
         data.HatchGlobals = {
             selectedEgg = HatchGlobals.selectedEgg,
-            petPerkThresholds = petPerkConfig -- Lưu với prefix
+            petPerkThresholds = petPerkConfig, -- Lưu với prefix
+            petTierSellList = HatchGlobals.petTierSellList,
+            autoSellAllPets = HatchGlobals.autoSellAllPets
         }
         return data
     end
@@ -755,6 +949,18 @@ function Module:Init()
                     warn(string.format("✅ Loaded threshold %s: %.1f", perkKey, numValue))
                 end
                 warn("✅ Đã load Pet Perk Thresholds từ config")
+            end
+            
+            -- ✅ Load Pet Tier Sell List từ config
+            if data.HatchGlobals.petTierSellList then
+                HatchGlobals.petTierSellList = data.HatchGlobals.petTierSellList
+                warn("✅ Đã load Pet Tier Sell List từ config:", e:JSONEncode(HatchGlobals.petTierSellList))
+            end
+            
+            -- ✅ Load Auto Sell All Pets từ config
+            if data.HatchGlobals.autoSellAllPets ~= nil then
+                HatchGlobals.autoSellAllPets = data.HatchGlobals.autoSellAllPets
+                warn("✅ Đã load Auto Sell All Pets từ config:", tostring(HatchGlobals.autoSellAllPets))
             end
             
             -- ✅ Update UI sau khi load (delay để UI đã render xong)
@@ -859,6 +1065,8 @@ function Module:Init()
                 local autoBuyState = _G.ToggleStates.AutoBuyEgg
                 local autoHatchState = _G.ToggleStates.AutoHatchEgg
                 local smartPetKeepState = _G.ToggleStates.SmartPetKeep
+                local autoSellPetByTierState = _G.ToggleStates.AutoSellPetByTier
+                local autoSellAllPetsState = _G.ToggleStates.AutoSellAllPets
                 
                 local autoBuyToggle = ConfigSystem.UIElements["AutoBuyEgg"]
                 if autoBuyToggle then
@@ -887,6 +1095,38 @@ function Module:Init()
                         HatchGlobals.smartPetKeep = state
                         warn("✅ Đã update UI SmartPetKeep:", state)
                     end)
+                end
+                
+                local autoSellPetByTierToggle = ConfigSystem.UIElements["AutoSellPetByTier"]
+                if autoSellPetByTierToggle then
+                    pcall(function()
+                        local state = autoSellPetByTierState or false
+                        autoSellPetByTierToggle.Value = state
+                        HatchGlobals.autoSellPetByTier = state
+                        warn("✅ Đã update UI AutoSellPetByTier:", state)
+                    end)
+                end
+                
+                local autoSellAllPetsToggle = ConfigSystem.UIElements["AutoSellAllPets"]
+                if autoSellAllPetsToggle then
+                    pcall(function()
+                        local state = autoSellAllPetsState or false
+                        autoSellAllPetsToggle.Value = state
+                        HatchGlobals.autoSellAllPets = state
+                        warn("✅ Đã update UI AutoSellAllPets:", state)
+                    end)
+                end
+                
+                -- Update tier sell toggles
+                for tier = 1, 5 do
+                    local tierToggle = ConfigSystem.UIElements["PetTierSell_" .. tier]
+                    if tierToggle then
+                        pcall(function()
+                            local state = HatchGlobals.petTierSellList[tier]
+                            tierToggle.Value = state
+                            warn(string.format("✅ Đã update UI PetTierSell_%d: %s", tier, tostring(state)))
+                        end)
+                    end
                 end
                 
                 -- Start automation nếu cần
