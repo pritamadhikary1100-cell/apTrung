@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luas
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -680,10 +680,15 @@ function Module:Init()
                     -- Update slider
                     local sliderKey = "PetPerk_" .. perkKey
                     local slider = ConfigSystem.UIElements[sliderKey]
-                    if slider and slider.SetValue then
+                    if slider then
+                        -- ✅ WindUI slider không có SetValue, set trực tiếp vào Value
                         pcall(function()
-                            slider:SetValue(numValue)
-                            warn(string.format("✅ Updated slider %s", sliderKey))
+                            if slider.Value ~= nil then
+                                slider.Value = numValue
+                                warn(string.format("✅ Updated slider %s = %.1f", sliderKey, numValue))
+                            else
+                                warn(string.format("⚠️ Slider %s.Value is nil", sliderKey))
+                            end
                         end)
                     else
                         warn(string.format("⚠️ Slider not found: %s", sliderKey))
@@ -795,12 +800,11 @@ function Module:Init()
                 -- Update dropdown
                 local dropdown = ConfigSystem.UIElements["selectedEgg"]
                 if dropdown and HatchGlobals.selectedEgg ~= "" then
-                    if dropdown.SetValue then
-                        pcall(function()
-                            dropdown:SetValue({HatchGlobals.selectedEgg})
-                            warn("✅ Đã update UI dropdown với:", HatchGlobals.selectedEgg)
-                        end)
-                    end
+                    pcall(function()
+                        -- ✅ WindUI dropdown set trực tiếp vào Value
+                        dropdown.Value = {HatchGlobals.selectedEgg}
+                        warn("✅ Đã update UI dropdown với:", HatchGlobals.selectedEgg)
+                    end)
                 else
                     warn("⚠️ Dropdown not found or selectedEgg empty")
                 end
@@ -818,18 +822,18 @@ function Module:Init()
                     local slider = ConfigSystem.UIElements[sliderKey]
                     
                     if slider then
-                        if slider.SetValue then
-                            local success = pcall(function()
-                                slider:SetValue(tonumber(value))
-                            end)
-                            if success then
+                        local success = pcall(function()
+                            -- ✅ WindUI slider set trực tiếp vào Value property
+                            if slider.Value ~= nil then
+                                slider.Value = tonumber(value)
                                 slidersUpdated = slidersUpdated + 1
                                 warn(string.format("✅ Updated slider %s: %.1f%%", sliderKey, value))
                             else
-                                warn(string.format("❌ Failed to update slider %s", sliderKey))
+                                warn(string.format("⚠️ Slider %s.Value property not found", sliderKey))
                             end
-                        else
-                            warn(string.format("⚠️ Slider %s không có method SetValue", sliderKey))
+                        end)
+                        if not success then
+                            warn(string.format("❌ Failed to update slider %s", sliderKey))
                         end
                     else
                         slidersNotFound = slidersNotFound + 1
@@ -845,25 +849,26 @@ function Module:Init()
                 local smartPetKeepState = _G.ToggleStates.SmartPetKeep
                 
                 local autoBuyToggle = ConfigSystem.UIElements["AutoBuyEgg"]
-                if autoBuyToggle and autoBuyToggle.SetValue then
+                if autoBuyToggle then
                     pcall(function()
-                        autoBuyToggle:SetValue(autoBuyState or false)
+                        -- ✅ WindUI toggle set trực tiếp vào Value
+                        autoBuyToggle.Value = autoBuyState or false
                         warn("✅ Đã update UI AutoBuyEgg:", autoBuyState)
                     end)
                 end
                 
                 local autoHatchToggle = ConfigSystem.UIElements["AutoHatchEgg"]
-                if autoHatchToggle and autoHatchToggle.SetValue then
+                if autoHatchToggle then
                     pcall(function()
-                        autoHatchToggle:SetValue(autoHatchState or false)
+                        autoHatchToggle.Value = autoHatchState or false
                         warn("✅ Đã update UI AutoHatchEgg:", autoHatchState)
                     end)
                 end
                 
                 local smartPetKeepToggle = ConfigSystem.UIElements["SmartPetKeep"]
-                if smartPetKeepToggle and smartPetKeepToggle.SetValue then
+                if smartPetKeepToggle then
                     pcall(function()
-                        smartPetKeepToggle:SetValue(smartPetKeepState or false)
+                        smartPetKeepToggle.Value = smartPetKeepState or false
                         HatchGlobals.smartPetKeep = smartPetKeepState or false
                         warn("✅ Đã update UI SmartPetKeep:", smartPetKeepState)
                     end)
