@@ -1,6 +1,6 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
--- Yêu cầu: WindUI, các biến global từ file chínhx
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luaxxx
+-- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
 local Module = {}
@@ -215,20 +215,28 @@ local function hatchAllEggs()
 end
 
 -- ==================== SMART PET KEEP ====================
--- Lấy danh sách pet perks (TẤT CẢ perks có PetStatRange - GIỐNG VŨ KHÍ)
+-- Lấy danh sách pet perks (GIỐNG LOGIC GAME: PetOnly=true HOẶC Universal)
 local function getPetPerksList()
     local petPerks = {}
     
     for perkKey, perkData in pairs(bQ) do
-        -- ✅ CHỈ CẦN có PetStatRange (không cần PetOnly)
-        if perkData.PetStatRange then
-            table.insert(petPerks, {
-                key = perkKey,
-                name = perkData.DisplayName,
-                desc = perkData.DisplayDesc,
-                min = perkData.PetStatRange[1] * 100,
-                max = perkData.PetStatRange[2] * 100
-            })
+        -- ✅ LOGIC GIỐNG GAME: RollForPerk line 268-277
+        -- Điều kiện: (không có WeaponOnly và không có ArmorOnly) HOẶC (có PetOnly)
+        local canAppearOnPet = (not perkData.WeaponOnly and not perkData.ArmorOnly) or perkData.PetOnly
+        
+        if canAppearOnPet and not perkData.Disabled then
+            -- Ưu tiên PetStatRange, nếu không có thì dùng StatRange
+            local statRange = perkData.PetStatRange or perkData.StatRange
+            
+            if statRange then
+                table.insert(petPerks, {
+                    key = perkKey,
+                    name = perkData.DisplayName,
+                    desc = perkData.DisplayDesc,
+                    min = statRange[1] * 100,
+                    max = statRange[2] * 100
+                })
+            end
         end
     end
     
