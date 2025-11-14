@@ -1,6 +1,6 @@
 -- ==================== AUTO HATCH MODULE ====================
 -- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
--- Yêu cầu: WindUI, các biến global từ file chính
+-- Yêu cầu: WindUI, các biến global từ file chínhx
 -- ===========================================================
 
 local Module = {}
@@ -215,12 +215,13 @@ local function hatchAllEggs()
 end
 
 -- ==================== SMART PET KEEP ====================
--- Lấy danh sách pet perks (chỉ những perk có PetOnly = true)
+-- Lấy danh sách pet perks (TẤT CẢ perks có PetStatRange - GIỐNG VŨ KHÍ)
 local function getPetPerksList()
     local petPerks = {}
     
     for perkKey, perkData in pairs(bQ) do
-        if perkData.PetOnly and perkData.PetStatRange then
+        -- ✅ CHỈ CẦN có PetStatRange (không cần PetOnly)
+        if perkData.PetStatRange then
             table.insert(petPerks, {
                 key = perkKey,
                 name = perkData.DisplayName,
@@ -251,12 +252,18 @@ local function checkPetPerks(petItem)
             -- Lấy perk data
             local perkData = bQ[perkName]
             
-            -- Kiểm tra perk có hợp lệ và là PetOnly không
-            if perkData and perkData.PetOnly then
+            -- Kiểm tra perk có hợp lệ và có PetStatRange không
+            if perkData and perkData.PetStatRange then
                 hasValidPerk = true
                 
                 -- Lấy ngưỡng từ HatchGlobals.petPerkThresholds
-                local threshold = HatchGlobals.petPerkThresholds[perkName] or 0
+                -- ✅ NẾU KHÔNG CÓ THRESHOLD -> Dùng 999% (chắc chắn BÁN)
+                local threshold = HatchGlobals.petPerkThresholds[perkName]
+                if not threshold then
+                    warn(string.format("⚠️ Pet có perk '%s' nhưng KHÔNG CÓ trong slider! -> Sẽ BÁN", perkName))
+                    threshold = 999 -- Ngưỡng cao để chắc chắn BÁN
+                end
+                
                 local perkPercent = math.round(perkValue * 100)
                 
                 -- ✅ Nếu perk này đạt ngưỡng -> GIỮ PET
