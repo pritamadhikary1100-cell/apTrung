@@ -1,5 +1,5 @@
--- ==================== AUTO HATCH MODULE ====================x
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
+-- ==================== AUTO HATCH MODULE ====================
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luax
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -439,29 +439,43 @@ local function startAutoBuy()
     libNoti("✅ Bắt đầu Auto Buy: " .. HatchGlobals.selectedEgg, 3)
     
     task.spawn(function()
-        while HatchGlobals.isAutoBuying do
-            -- ✅ KIỂM TRA TOGGLE STATE (kiểm tra wrapper trước mỗi loop)
+        while true do
+            -- ✅ KIỂM TRA TOGGLE STATE TRƯỚC KHI THỰC HIỆN BẤT KỲ HÀNH ĐỘNG NÀO
             local autoBuyEnabled = false
             if _G.Toggles and _G.Toggles.AutoBuyEgg then
                 autoBuyEnabled = _G.Toggles.AutoBuyEgg.Value
             end
             
-            if not autoBuyEnabled then
-                HatchGlobals.isAutoBuying = false
-                warn("🛑 Auto Buy stopped: Toggle disabled")
+            -- Nếu toggle bị tắt hoặc biến global = false -> DỪNG NGAY
+            if not autoBuyEnabled or not HatchGlobals.isAutoBuying then
+                if HatchGlobals.isAutoBuying then
+                    HatchGlobals.isAutoBuying = false
+                    warn("🛑 Auto Buy stopped: Toggle disabled")
+                    libNoti("⏹️ Đã dừng Auto Buy", 3)
+                end
                 break
             end
             
             local success = buyEgg(HatchGlobals.selectedEgg, HatchGlobals.purchaseMethod)
             
-            if not success then
-                task.wait(1)
-            else
-                task.wait(0.5) -- Fixed delay
+            -- Wait với interval ngắn để kiểm tra toggle thường xuyên hơn
+            local waitTime = success and 0.5 or 1
+            local waited = 0
+            while waited < waitTime do
+                -- Kiểm tra toggle mỗi 0.1s trong lúc wait
+                task.wait(0.1)
+                waited = waited + 0.1
+                
+                -- Nếu toggle bị tắt trong lúc wait -> break ngay
+                local stillEnabled = _G.Toggles and _G.Toggles.AutoBuyEgg and _G.Toggles.AutoBuyEgg.Value
+                if not stillEnabled or not HatchGlobals.isAutoBuying then
+                    HatchGlobals.isAutoBuying = false
+                    warn("🛑 Auto Buy stopped: Toggle disabled during wait")
+                    libNoti("⏹️ Đã dừng Auto Buy", 3)
+                    return
+                end
             end
         end
-        
-        libNoti("⏹️ Đã dừng Auto Buy", 3)
     end)
 end
 
@@ -479,29 +493,43 @@ local function startAutoHatch()
     libNoti("✅ Bắt đầu Auto Hatch", 3)
     
     task.spawn(function()
-        while HatchGlobals.isAutoHatching do
-            -- ✅ KIỂM TRA TOGGLE STATE (kiểm tra wrapper trước mỗi loop)
+        while true do
+            -- ✅ KIỂM TRA TOGGLE STATE TRƯỚC KHI THỰC HIỆN BẤT KỲ HÀNH ĐỘNG NÀO
             local autoHatchEnabled = false
             if _G.Toggles and _G.Toggles.AutoHatchEgg then
                 autoHatchEnabled = _G.Toggles.AutoHatchEgg.Value
             end
             
-            if not autoHatchEnabled then
-                HatchGlobals.isAutoHatching = false
-                warn("🛑 Auto Hatch stopped: Toggle disabled")
+            -- Nếu toggle bị tắt hoặc biến global = false -> DỪNG NGAY
+            if not autoHatchEnabled or not HatchGlobals.isAutoHatching then
+                if HatchGlobals.isAutoHatching then
+                    HatchGlobals.isAutoHatching = false
+                    warn("🛑 Auto Hatch stopped: Toggle disabled")
+                    libNoti("⏹️ Đã dừng Auto Hatch", 3)
+                end
                 break
             end
             
             local hatchedCount = hatchAllEggs()
             
-            if hatchedCount == 0 then
-                task.wait(2) -- Đợi lâu hơn nếu không có egg
-            else
-                task.wait(0.5) -- Fixed delay
+            -- Wait với interval ngắn để kiểm tra toggle thường xuyên hơn
+            local waitTime = hatchedCount == 0 and 2 or 0.5
+            local waited = 0
+            while waited < waitTime do
+                -- Kiểm tra toggle mỗi 0.1s trong lúc wait
+                task.wait(0.1)
+                waited = waited + 0.1
+                
+                -- Nếu toggle bị tắt trong lúc wait -> break ngay
+                local stillEnabled = _G.Toggles and _G.Toggles.AutoHatchEgg and _G.Toggles.AutoHatchEgg.Value
+                if not stillEnabled or not HatchGlobals.isAutoHatching then
+                    HatchGlobals.isAutoHatching = false
+                    warn("🛑 Auto Hatch stopped: Toggle disabled during wait")
+                    libNoti("⏹️ Đã dừng Auto Hatch", 3)
+                    return
+                end
             end
         end
-        
-        libNoti("⏹️ Đã dừng Auto Hatch", 3)
     end)
 end
 
@@ -595,6 +623,7 @@ local function createAutoHatchTab()
                 startAutoBuy()
             else
                 HatchGlobals.isAutoBuying = false
+                libNoti("⏹️ Đang dừng Auto Buy...", 2)
             end
         end
     })
@@ -615,6 +644,7 @@ local function createAutoHatchTab()
                 startAutoHatch()
             else
                 HatchGlobals.isAutoHatching = false
+                libNoti("⏹️ Đang dừng Auto Hatch...", 2)
             end
         end
     })
