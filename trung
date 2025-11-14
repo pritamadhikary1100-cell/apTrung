@@ -1,4 +1,4 @@
--- ==================== AUTO HATCH MODULE ====================
+-- ==================== AUTO HATCH MODULE ====================x
 -- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
@@ -440,10 +440,15 @@ local function startAutoBuy()
     
     task.spawn(function()
         while HatchGlobals.isAutoBuying do
-            -- ✅ KIỂM TRA TOGGLE STATE
-            local autoBuyEnabled = _G.Toggles and _G.Toggles.AutoBuyEgg and _G.Toggles.AutoBuyEgg.Value or false
+            -- ✅ KIỂM TRA TOGGLE STATE (kiểm tra wrapper trước mỗi loop)
+            local autoBuyEnabled = false
+            if _G.Toggles and _G.Toggles.AutoBuyEgg then
+                autoBuyEnabled = _G.Toggles.AutoBuyEgg.Value
+            end
+            
             if not autoBuyEnabled then
                 HatchGlobals.isAutoBuying = false
+                warn("🛑 Auto Buy stopped: Toggle disabled")
                 break
             end
             
@@ -475,10 +480,15 @@ local function startAutoHatch()
     
     task.spawn(function()
         while HatchGlobals.isAutoHatching do
-            -- ✅ KIỂM TRA TOGGLE STATE
-            local autoHatchEnabled = _G.Toggles and _G.Toggles.AutoHatchEgg and _G.Toggles.AutoHatchEgg.Value or false
+            -- ✅ KIỂM TRA TOGGLE STATE (kiểm tra wrapper trước mỗi loop)
+            local autoHatchEnabled = false
+            if _G.Toggles and _G.Toggles.AutoHatchEgg then
+                autoHatchEnabled = _G.Toggles.AutoHatchEgg.Value
+            end
+            
             if not autoHatchEnabled then
                 HatchGlobals.isAutoHatching = false
+                warn("🛑 Auto Hatch stopped: Toggle disabled")
                 break
             end
             
