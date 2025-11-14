@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luaxxxxx
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -654,7 +654,7 @@ local function createAutoHatchTab()
             return
         end
         
-        -- ✅ PRIORITY 0: Auto Sell All Pets (nếu enabled, bán tất cả)
+        -- ✅ PRIORITY 0: Auto Sell All Pets (nếu enabled, bán tất cả - bỏ qua mọi filter)
         if HatchGlobals.autoSellAllPets then
             if sellPet(item) then
                 -- Không hiển thị noti cho từng con để tránh spam
@@ -662,32 +662,41 @@ local function createAutoHatchTab()
             return
         end
         
-        -- ✅ PRIORITY 1: Auto Sell by Tier (nếu enabled)
-        if HatchGlobals.autoSellPetByTier then
-            if shouldSellPetByTier(item) then
-                local tier = getPetTier(item)
-                if sellPet(item) then
-                    libNoti(string.format("💰 Bán (Tier %d): %s", tier or 0, itemData.DisplayKey or item.Name), 1.5)
-                end
-                return -- Đã sell, không cần check Smart Pet Keep nữa
-            end
-        end
-        
-        -- ✅ PRIORITY 2: Smart Pet Keep (nếu enabled và pet không bị sell bởi tier)
+        -- ✅ PRIORITY 1: Smart Pet Keep (ưu tiên GIỮ pet có perk đạt ngưỡng)
         if HatchGlobals.smartPetKeep then
             local shouldKeep, perkInfo = checkPetPerks(item)
             
             -- ✅ LUÔN LUÔN có perkInfo (ngay cả khi không có perk)
             if shouldKeep then
-                -- Pet đạt ngưỡng -> GIỮ LẠI
+                -- Pet đạt ngưỡng -> GIỮ LẠI (bỏ qua tier filter)
                 libNoti(string.format("✅ Giữ: %s | %s: %.1f%% ≥ %.1f%%", 
                     itemData.DisplayKey or item.Name,
                     perkInfo.name,
                     perkInfo.value,
                     perkInfo.threshold
                 ), 2)
-            else
-                -- Pet không đạt ngưỡng hoặc không có perk -> BÁN
+                return -- Đã giữ, không cần check tier
+            end
+            -- Nếu không đạt ngưỡng, tiếp tục check tier filter bên dưới
+        end
+        
+        -- ✅ PRIORITY 2: Auto Sell by Tier (bán theo tier nếu Smart Pet Keep không giữ)
+        if HatchGlobals.autoSellPetByTier then
+            if shouldSellPetByTier(item) then
+                local tier = getPetTier(item)
+                if sellPet(item) then
+                    libNoti(string.format("💰 Bán (Tier %d): %s", tier or 0, itemData.DisplayKey or item.Name), 1.5)
+                end
+                return -- Đã sell
+            end
+        end
+        
+        -- ✅ PRIORITY 3: Nếu Smart Pet Keep enabled nhưng pet không đạt ngưỡng và không thuộc tier sell list
+        -- → Vẫn bán vì không đạt yêu cầu
+        if HatchGlobals.smartPetKeep then
+            local shouldKeep, perkInfo = checkPetPerks(item)
+            if not shouldKeep then
+                -- Pet không đạt ngưỡng và không bị tier filter → Bán
                 if sellPet(item) then
                     libNoti(string.format("💰 Bán (Perk): %s | %s: %.1f%% < %.1f%%", 
                         itemData.DisplayKey or item.Name,
