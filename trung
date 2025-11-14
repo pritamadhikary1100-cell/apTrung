@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luaf
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -238,7 +238,12 @@ end
 -- Kiểm tra pet có perk đạt ngưỡng không
 local function checkPetPerks(petItem)
     if not petItem:FindFirstChild("Perk") or not petItem.Perk:FindFirstChild("PerkValue") then
-        return false, nil
+        -- ✅ Pet không có perk -> BÁN (không giữ)
+        return false, {
+            name = "No Perk",
+            value = 0,
+            threshold = 0
+        }
     end
     
     local perkName = petItem.Perk.Value
@@ -247,7 +252,12 @@ local function checkPetPerks(petItem)
     -- Lấy perk data
     local perkData = bQ[perkName]
     if not perkData or not perkData.PetOnly then
-        return false, nil
+        -- ✅ Perk không hợp lệ hoặc không phải PetOnly -> BÁN
+        return false, {
+            name = perkName or "Unknown",
+            value = 0,
+            threshold = 0
+        }
     end
     
     -- Lấy ngưỡng từ HatchGlobals.petPerkThresholds
@@ -593,6 +603,10 @@ local function createAutoHatchTab()
             Description = "Bán pet " .. tierNames[tier],
             Default = true, -- Mặc định bán tất cả tier
             Callback = function(state)
+                -- ✅ Update qua Toggles wrapper
+                if _G.Toggles and _G.Toggles["PetTierSell_" .. tier] then
+                    _G.Toggles["PetTierSell_" .. tier]:SetValue(state)
+                end
                 HatchGlobals.petTierSellList[tier] = state
                 warn(string.format("📊 Pet Tier %d sell: %s", tier, tostring(state)))
             end
@@ -663,23 +677,24 @@ local function createAutoHatchTab()
         if HatchGlobals.smartPetKeep then
             local shouldKeep, perkInfo = checkPetPerks(item)
             
-            if perkInfo then
-                if shouldKeep then
-                    libNoti(string.format("✅ Giữ: %s | %s: %.1f%% ≥ %.1f%%", 
+            -- ✅ LUÔN LUÔN có perkInfo (ngay cả khi không có perk)
+            if shouldKeep then
+                -- Pet đạt ngưỡng -> GIỮ LẠI
+                libNoti(string.format("✅ Giữ: %s | %s: %.1f%% ≥ %.1f%%", 
+                    itemData.DisplayKey or item.Name,
+                    perkInfo.name,
+                    perkInfo.value,
+                    perkInfo.threshold
+                ), 2)
+            else
+                -- Pet không đạt ngưỡng hoặc không có perk -> BÁN
+                if sellPet(item) then
+                    libNoti(string.format("💰 Bán (Perk): %s | %s: %.1f%% < %.1f%%", 
                         itemData.DisplayKey or item.Name,
                         perkInfo.name,
                         perkInfo.value,
                         perkInfo.threshold
                     ), 2)
-                else
-                    if sellPet(item) then
-                        libNoti(string.format("💰 Bán (Perk): %s | %s: %.1f%% < %.1f%%", 
-                            itemData.DisplayKey or item.Name,
-                            perkInfo.name,
-                            perkInfo.value,
-                            perkInfo.threshold
-                        ), 2)
-                    end
                 end
             end
         end
