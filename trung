@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luaf
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -207,7 +207,7 @@ local function hatchAllEggs()
     for _, egg in ipairs(eggs) do
         if hatchSingleEgg(egg) then
             hatchedCount = hatchedCount + 1
-            task.wait(0.1) -- Delay nhỏ giữa các lần hatch
+            task.wait(2) -- Delay nhỏ giữa các lần hatch
         end
     end
     
