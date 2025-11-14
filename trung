@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luas
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -681,34 +681,24 @@ function Module:Init()
                     local sliderKey = "PetPerk_" .. perkKey
                     local slider = ConfigSystem.UIElements[sliderKey]
                     if slider then
-                        pcall(function()
-                            -- 🔍 DEBUG: In ra tất cả properties và methods của slider
-                            warn("🔍 Slider object type:", type(slider))
-                            warn("🔍 Slider metatable:", getmetatable(slider))
-                            
-                            -- Thử set value
-                            if type(slider) == "table" then
-                                -- Lưu giá trị cũ
-                                local oldValue = slider.Value
-                                
-                                -- Set giá trị mới
-                                slider.Value = numValue
-                                
-                                -- Kiểm tra xem có set thành công không
-                                warn(string.format("🔍 Slider %s: old=%.1f, new=%.1f, current=%.1f", 
-                                    sliderKey, oldValue or -1, numValue, slider.Value or -1))
-                                
-                                -- ✅ Thử gọi callback để trigger UI update
-                                if slider.Callback and type(slider.Callback) == "function" then
-                                    slider.Callback(numValue)
-                                    warn("✅ Triggered slider callback")
-                                end
-                                
-                                warn(string.format("✅ Updated slider %s = %.1f", sliderKey, numValue))
-                            else
-                                warn(string.format("⚠️ Slider %s is not a table, type: %s", sliderKey, type(slider)))
+                        local success, err = pcall(function()
+                            -- 🔍 DEBUG: In ra tất cả properties của slider
+                            warn("🔍 Slider properties:")
+                            for k, v in pairs(slider) do
+                                warn(string.format("  %s = %s", tostring(k), tostring(v)))
                             end
+                            
+                            -- ✅ CHỈ SET VALUE, KHÔNG GỌI CALLBACK
+                            local oldValue = slider.Value
+                            slider.Value = numValue
+                            
+                            warn(string.format("✅ Set %s: %.1f → %.1f (current: %.1f)", 
+                                sliderKey, oldValue or -1, numValue, slider.Value or -1))
                         end)
+                        
+                        if not success then
+                            warn(string.format("❌ Error updating slider %s: %s", sliderKey, tostring(err)))
+                        end
                     else
                         warn(string.format("⚠️ Slider not found: %s", sliderKey))
                     end
@@ -821,10 +811,7 @@ function Module:Init()
                 if dropdown and HatchGlobals.selectedEgg ~= "" then
                     pcall(function()
                         dropdown.Value = {HatchGlobals.selectedEgg}
-                        -- Trigger callback để UI update
-                        if dropdown.Callback and type(dropdown.Callback) == "function" then
-                            dropdown.Callback({HatchGlobals.selectedEgg})
-                        end
+                        -- ❌ KHÔNG gọi callback vì có thể gây lỗi
                         warn("✅ Đã update UI dropdown với:", HatchGlobals.selectedEgg)
                     end)
                 else
@@ -844,27 +831,25 @@ function Module:Init()
                     local slider = ConfigSystem.UIElements[sliderKey]
                     
                     if slider then
-                        local success = pcall(function()
-                            if type(slider) == "table" then
-                                local numValue = tonumber(value)
-                                local oldValue = slider.Value
-                                
-                                -- Set value
-                                slider.Value = numValue
-                                
-                                -- Trigger callback để UI update
-                                if slider.Callback and type(slider.Callback) == "function" then
-                                    slider.Callback(numValue)
-                                end
-                                
-                                slidersUpdated = slidersUpdated + 1
-                                warn(string.format("✅ Updated slider %s: %.1f%% (was: %.1f%%)", sliderKey, numValue, oldValue or -1))
-                            else
-                                warn(string.format("⚠️ Slider %s is not a table", sliderKey))
+                        local success, err = pcall(function()
+                            local numValue = tonumber(value)
+                            if not numValue then
+                                warn(string.format("⚠️ Invalid value for %s: %s", sliderKey, tostring(value)))
+                                return
                             end
+                            
+                            local oldValue = slider.Value
+                            
+                            -- ✅ CHỈ SET VALUE, KHÔNG GỌI CALLBACK để tránh lỗi
+                            slider.Value = numValue
+                            
+                            slidersUpdated = slidersUpdated + 1
+                            warn(string.format("✅ Updated slider %s: %.1f%% (was: %.1f%%)", sliderKey, numValue, oldValue or -1))
                         end)
+                        
                         if not success then
-                            warn(string.format("❌ Failed to update slider %s", sliderKey))
+                            slidersNotFound = slidersNotFound + 1
+                            warn(string.format("❌ Failed to update slider %s: %s", sliderKey, tostring(err)))
                         end
                     else
                         slidersNotFound = slidersNotFound + 1
@@ -884,10 +869,7 @@ function Module:Init()
                     pcall(function()
                         local state = autoBuyState or false
                         autoBuyToggle.Value = state
-                        -- Trigger callback để UI update
-                        if autoBuyToggle.Callback and type(autoBuyToggle.Callback) == "function" then
-                            autoBuyToggle.Callback(state)
-                        end
+                        -- ❌ KHÔNG gọi callback vì có thể gây lỗi
                         warn("✅ Đã update UI AutoBuyEgg:", state)
                     end)
                 end
@@ -897,9 +879,6 @@ function Module:Init()
                     pcall(function()
                         local state = autoHatchState or false
                         autoHatchToggle.Value = state
-                        if autoHatchToggle.Callback and type(autoHatchToggle.Callback) == "function" then
-                            autoHatchToggle.Callback(state)
-                        end
                         warn("✅ Đã update UI AutoHatchEgg:", state)
                     end)
                 end
@@ -909,9 +888,6 @@ function Module:Init()
                     pcall(function()
                         local state = smartPetKeepState or false
                         smartPetKeepToggle.Value = state
-                        if smartPetKeepToggle.Callback and type(smartPetKeepToggle.Callback) == "function" then
-                            smartPetKeepToggle.Callback(state)
-                        end
                         HatchGlobals.smartPetKeep = state
                         warn("✅ Đã update UI SmartPetKeep:", state)
                     end)
