@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luasss
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -690,6 +690,16 @@ local function createAutoHatchTab()
     InventoryItems.ChildAdded:Connect(function(item)
         task.wait(0.1) -- Đợi item load xong
         
+        -- ✅ KIỂM TRA TOGGLE STATE TRƯỚC KHI XỬ LÝ
+        local smartPetKeepEnabled = _G.Toggles and _G.Toggles.SmartPetKeep and _G.Toggles.SmartPetKeep.Value or false
+        local autoSellByTierEnabled = _G.Toggles and _G.Toggles.AutoSellPetByTier and _G.Toggles.AutoSellPetByTier.Value or false
+        local autoSellAllEnabled = _G.Toggles and _G.Toggles.AutoSellAllPets and _G.Toggles.AutoSellAllPets.Value or false
+        
+        -- Nếu TẤT CẢ toggle đều TẮT → không làm gì
+        if not smartPetKeepEnabled and not autoSellByTierEnabled and not autoSellAllEnabled then
+            return
+        end
+        
         -- Kiểm tra xem có phải pet không
         local itemData = bR[item.Name]
         if not itemData or itemData.Type ~= "Pet" then
@@ -697,7 +707,7 @@ local function createAutoHatchTab()
         end
         
         -- ✅ PRIORITY 0: Auto Sell All Pets (nếu enabled, bán tất cả - bỏ qua mọi filter)
-        if HatchGlobals.autoSellAllPets then
+        if autoSellAllEnabled then
             if sellPet(item) then
                 -- Không hiển thị noti cho từng con để tránh spam
             end
@@ -708,7 +718,7 @@ local function createAutoHatchTab()
         local petTier = getPetTier(item)
         
         -- ✅ PRIORITY 1: Smart Pet Keep CHỈ áp dụng cho TIER 5
-        if HatchGlobals.smartPetKeep and petTier == 5 then
+        if smartPetKeepEnabled and petTier == 5 then
             local shouldKeep, perkInfo = checkPetPerks(item)
             
             if shouldKeep then
@@ -725,7 +735,7 @@ local function createAutoHatchTab()
         end
         
         -- ✅ PRIORITY 2: Auto Sell by Tier (bán theo tier đã chọn)
-        if HatchGlobals.autoSellPetByTier then
+        if autoSellByTierEnabled then
             if shouldSellPetByTier(item) then
                 if sellPet(item) then
                     libNoti(string.format("💰 Bán (Tier %d): %s", petTier or 0, itemData.DisplayKey or item.Name), 1.5)
@@ -736,7 +746,7 @@ local function createAutoHatchTab()
         
         -- ✅ PRIORITY 3: Smart Pet Keep cho các tier khác (nếu không bật Auto Sell by Tier)
         -- → Chỉ chạy khi Auto Sell by Tier TẮT hoặc pet không thuộc tier sell list
-        if HatchGlobals.smartPetKeep then
+        if smartPetKeepEnabled then
             local shouldKeep, perkInfo = checkPetPerks(item)
             if not shouldKeep then
                 -- Pet không đạt ngưỡng → Bán
