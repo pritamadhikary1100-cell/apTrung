@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luaxxx
+-- Load từ: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.lua
 -- Yêu cầu: WindUI, các biến global từ file chính
 -- ===========================================================
 
@@ -260,35 +260,41 @@ local function checkPetPerks(petItem)
             -- Lấy perk data
             local perkData = bQ[perkName]
             
-            -- Kiểm tra perk có hợp lệ và có PetStatRange không
-            if perkData and perkData.PetStatRange then
-                hasValidPerk = true
+            -- ✅ KIỂM TRA PERK HỢP LỆ: Phải có thể xuất hiện trên pet
+            -- Logic giống getPetPerksList: (không WeaponOnly và không ArmorOnly) HOẶC có PetOnly
+            if perkData then
+                local canAppearOnPet = (not perkData.WeaponOnly and not perkData.ArmorOnly) or perkData.PetOnly
+                local statRange = perkData.PetStatRange or perkData.StatRange
                 
-                -- Lấy ngưỡng từ HatchGlobals.petPerkThresholds
-                -- ✅ NẾU KHÔNG CÓ THRESHOLD -> Dùng 999% (chắc chắn BÁN)
-                local threshold = HatchGlobals.petPerkThresholds[perkName]
-                if not threshold then
-                    warn(string.format("⚠️ Pet có perk '%s' nhưng KHÔNG CÓ trong slider! -> Sẽ BÁN", perkName))
-                    threshold = 999 -- Ngưỡng cao để chắc chắn BÁN
-                end
-                
-                local perkPercent = math.round(perkValue * 100)
-                
-                -- ✅ Nếu perk này đạt ngưỡng -> GIỮ PET
-                local meetsThreshold = perkPercent >= threshold
-                
-                if meetsThreshold and not shouldKeepPet then
-                    shouldKeepPet = true
-                end
-                
-                -- Lưu perk tốt nhất để hiển thị (perk đầu tiên đạt ngưỡng hoặc perk cao nhất)
-                if not bestPerkInfo or meetsThreshold or (not shouldKeepPet and perkPercent > bestPerkInfo.value) then
-                    bestPerkInfo = {
-                        name = perkData.DisplayName,
-                        value = perkPercent,
-                        threshold = threshold,
-                        meets = meetsThreshold
-                    }
+                if canAppearOnPet and statRange then
+                    hasValidPerk = true
+                    
+                    -- Lấy ngưỡng từ HatchGlobals.petPerkThresholds
+                    -- ✅ NẾU KHÔNG CÓ THRESHOLD -> Dùng 999% (chắc chắn BÁN)
+                    local threshold = HatchGlobals.petPerkThresholds[perkName]
+                    if not threshold then
+                        warn(string.format("⚠️ Pet có perk '%s' nhưng KHÔNG CÓ trong slider! -> Sẽ BÁN", perkName))
+                        threshold = 999 -- Ngưỡng cao để chắc chắn BÁN
+                    end
+                    
+                    local perkPercent = math.round(perkValue * 100)
+                    
+                    -- ✅ Nếu perk này đạt ngưỡng -> GIỮ PET
+                    local meetsThreshold = perkPercent >= threshold
+                    
+                    if meetsThreshold and not shouldKeepPet then
+                        shouldKeepPet = true
+                    end
+                    
+                    -- Lưu perk tốt nhất để hiển thị (perk đầu tiên đạt ngưỡng hoặc perk cao nhất)
+                    if not bestPerkInfo or meetsThreshold or (not shouldKeepPet and perkPercent > bestPerkInfo.value) then
+                        bestPerkInfo = {
+                            name = perkData.DisplayName,
+                            value = perkPercent,
+                            threshold = threshold,
+                            meets = meetsThreshold
+                        }
+                    end
                 end
             end
         end
