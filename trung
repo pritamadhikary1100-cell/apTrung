@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Loaded from: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luad
+-- Loaded from: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luads
 -- Requirements: WindUI, global variables from the main script
 -- ===========================================================
 
@@ -197,7 +197,7 @@ local function hatchSingleEgg(eggItem)
     -- Step 2: Hatch the equipped egg
     local success = hatchEquippedEgg()
     
-    task.wait(0.3) -- Wait for the hatch animation
+    task.wait(1) -- Wait for the hatch animation
     
     return success
 end
