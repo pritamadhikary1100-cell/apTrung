@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Loaded from: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luads
+-- Loaded from: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luad
 -- Requirements: WindUI, global variables from the main script
 -- ===========================================================
 
@@ -210,7 +210,7 @@ local function hatchAllEggs()
     for _, egg in ipairs(eggs) do
         if hatchSingleEgg(egg) then
             hatchedCount = hatchedCount + 1
-            task.wait(2) -- Small delay between hatch attempts
+            task.wait(1) -- Small delay between hatch attempts
         end
     end
     
