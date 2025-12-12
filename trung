@@ -1,5 +1,5 @@
 -- ==================== AUTO HATCH MODULE ====================
--- Loaded from: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luad
+-- Loaded from: https://raw.githubusercontent.com/maihoangphi2531/REPO/main/autohatch.luadzczczcz
 -- Requirements: WindUI, global variables from the main script
 -- ===========================================================
 
@@ -24,7 +24,14 @@ local bR = _G.ItemsModule  -- Items data
 -- ✅ Fetch ReplicatedStorage references
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local ItemsModule = require(Shared:WaitForChild("Items"))
+local ItemsModule
+pcall(function()
+    ItemsModule = require(Shared:WaitForChild("Items"))
+end)
+-- Fallback nếu require thất bại
+if not ItemsModule then
+    ItemsModule = bR or {}
+end
 local BuyEggRemote = Shared:WaitForChild("Pets"):WaitForChild("BuyEgg")
 local EquipItemRemote = Shared:WaitForChild("Inventory"):WaitForChild("EquipItem")
 local HatchRemote = Shared:WaitForChild("Pets"):WaitForChild("Hatch")
@@ -94,10 +101,12 @@ end
 local function getEggsList()
     local eggs = {}
     
-    for itemName, itemData in pairs(ItemsModule) do
-        -- Check if the entry is an egg (Type == "Egg" or the name contains "Egg")
-        if itemData.Type == "Egg" or string.match(itemName, "Egg") then
-            table.insert(eggs, itemName)
+    if ItemsModule then
+        for itemName, itemData in pairs(ItemsModule) do
+            -- Check if the entry is an egg (Type == "Egg" or the name contains "Egg")
+            if itemData.Type == "Egg" or string.match(itemName, "Egg") then
+                table.insert(eggs, itemName)
+            end
         end
     end
     
@@ -221,6 +230,10 @@ end
 -- Fetch pet perk list (matching in-game logic: PetOnly=true OR universal)
 local function getPetPerksList()
     local petPerks = {}
+    
+    if not bQ then
+        return petPerks
+    end
     
     for perkKey, perkData in pairs(bQ) do
         -- ✅ Match in-game logic: RollForPerk line 268-277
